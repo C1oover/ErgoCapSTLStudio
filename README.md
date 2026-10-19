@@ -13,3 +13,17 @@ A browser-based tool for customizing sculpted ergonomic keycaps (KLP Lamé, CLP,
 ## Usage / Local Run
 
 No build step or dependencies required. Open `index.html` in any browser, or host directly via GitHub Pages
+
+
+## Upstream Keycap Profile Credits
+
+This tool modifies meshes created by the ergonomic keyboard community. Full credit for the original sculpted geometries goes to their respective authors:
+
+- **[KLP Lamé Keycaps](https://github.com/braindefender/KLP-Lame-Keycaps)** by [@braindefender](https://github.com/braindefender)
+- **[KLP Lamé Keycaps Rotated](https://github.com/BertPlasschaert/KLP-Lame-Keycaps-Rotated)** by [@BertPlasschaert](https://github.com/BertPlasschaert)
+- **[CLP Keycaps](https://github.com/vvhg1/clp-keycaps)** by [@vvhg1](https://github.com/vvhg1)
+- **[CFX Chicago Stenographer](https://github.com/rschenk/cfx_chicago_stenographer)** by [@rschenk](https://github.com/rschenk) & original **[PseudoMakeMeKeyCapProfiles](https://github.com/pseudoku/PseudoMakeMeKeyCapProfiles)** by [@pseudoku](https://github.com/pseudoku)
+
+## License
+
+Licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)**. See [`LICENSE`](./LICENSE) for details.
