@@ -1,0 +1,1536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ErgoCap STL Studio — KLP Lamé / CLP / Steno Customizer</title>
+  <style>
+    :root {
+      --bg: #0d0f14; --panel: #151821; --border: #262b3d;
+      --text: #eef0f6; --muted: #8e96b0; --accent: #6366f1;
+      --accent-hi: #818cf8; --cyan: #06b6d4; --input: #0e1017;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg); color: var(--text); height: 100vh; width: 100vw;
+      overflow: hidden; display: flex;
+    }
+    #sidebar {
+      width: 410px; min-width: 370px; height: 100vh; background: var(--panel);
+      border-right: 1px solid var(--border); display: flex; flex-direction: column; z-index: 10;
+    }
+    .sidebar-header {
+      padding: 10px 14px; border-bottom: 1px solid var(--border);
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .sidebar-header h1 { font-size: 0.94rem; font-weight: 700; color: #fff; }
+    .header-actions { display: flex; align-items: center; gap: 6px; }
+    .badge {
+      font-size: 0.64rem; background: rgba(16,185,129,0.15); color: #34d399;
+      padding: 2px 7px; border-radius: 99px; border: 1px solid rgba(16,185,129,0.35); font-weight: 600;
+    }
+    .status-container { padding: 6px 14px; background: #10131c; border-bottom: 1px solid var(--border); }
+    .status-row { display: flex; justify-content: space-between; font-size: 0.72rem; color: #67e8f9; margin-bottom: 4px; }
+    .status-row.error { color: #fca5a5; }
+    .progress-track { width: 100%; height: 4px; background: #1e2333; border-radius: 2px; overflow: hidden; }
+    .progress-fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--cyan), var(--accent)); transition: width 0.15s; }
+    #debugDrawer {
+      display: none; background: #090b10; border-bottom: 1px solid var(--border);
+      padding: 6px 12px; max-height: 150px; flex-direction: column; gap: 4px;
+    }
+    #debugDrawer.open { display: flex; }
+    .debug-toolbar { display: flex; justify-content: space-between; align-items: center; font-size: 0.68rem; color: var(--muted); }
+    #debugLogOutput {
+      font-family: monospace; font-size: 0.66rem; line-height: 1.35; color: #a5b4fc;
+      overflow-y: auto; max-height: 110px; white-space: pre-wrap; word-break: break-all;
+    }
+    .controls-scroll { flex: 1; overflow-y: auto; padding: 10px 14px; }
+    .controls-scroll::-webkit-scrollbar { width: 5px; }
+    .controls-scroll::-webkit-scrollbar-thumb { background: #2d3348; border-radius: 3px; }
+    .section { margin-bottom: 11px; padding-bottom: 9px; border-bottom: 1px solid var(--border); }
+    .section:last-child { border-bottom: none; }
+    .section-title {
+      font-size: 0.69rem; text-transform: uppercase; letter-spacing: 0.06em;
+      color: var(--muted); margin-bottom: 7px; font-weight: 700;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .control-group { margin-bottom: 7px; }
+    .control-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 7px; }
+    .control-label { display: flex; justify-content: space-between; align-items: center; font-size: 0.77rem; margin-bottom: 3px; }
+    .label-left { display: inline-flex; align-items: center; gap: 4px; }
+    .tip-icon {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 14px; height: 14px; border-radius: 50%; background: #23283a; color: #9ba3be;
+      font-size: 0.62rem; font-weight: 700; cursor: help; border: 1px solid #343b54;
+    }
+    .tip-icon:hover { background: var(--accent); color: #fff; }
+    .control-value { font-family: monospace; color: var(--accent-hi); font-size: 0.73rem; }
+    select, input[type="text"], input[type="number"] {
+      width: 100%; padding: 5px 7px; background: var(--input); border: 1px solid var(--border);
+      color: var(--text); border-radius: 5px; font-size: 0.77rem; outline: none;
+    }
+    select:focus, input:focus { border-color: var(--accent); }
+    input[type="range"] { width: 100%; accent-color: var(--accent); cursor: pointer; }
+    .file-drop {
+      border: 1px dashed #3b425e; background: rgba(14,16,23,0.6); border-radius: 5px;
+      padding: 5px; text-align: center; font-size: 0.72rem; color: var(--muted);
+      cursor: pointer; display: block; margin-top: 4px;
+    }
+    .file-drop:hover { border-color: var(--accent); color: var(--text); }
+    .file-drop input { display: none; }
+    .btn-small {
+      background: var(--input); border: 1px solid var(--border); color: var(--text);
+      padding: 2px 7px; border-radius: 4px; font-size: 0.68rem; cursor: pointer;
+    }
+    .btn-small:hover { border-color: var(--accent); background: rgba(99,102,241,0.15); }
+    .quick-char-bar { display: flex; gap: 4px; flex-wrap: wrap; margin: 3px 0 5px; }
+    .char-chip {
+      background: var(--input); border: 1px solid var(--border); color: var(--muted);
+      padding: 2px 6px; border-radius: 4px; font-size: 0.69rem; font-family: monospace; cursor: pointer;
+    }
+    .char-chip:hover { color: #fff; border-color: var(--accent); }
+    .sidebar-footer { padding: 9px 14px; border-top: 1px solid var(--border); background: #11131b; }
+    .btn-primary {
+      width: 100%; background: var(--accent); color: #fff; border: none; padding: 9px;
+      border-radius: 6px; font-weight: 600; font-size: 0.84rem; cursor: pointer;
+    }
+    .btn-primary:hover { background: var(--accent-hi); }
+    #viewport-container { flex: 1; position: relative; height: 100vh; min-width: 300px; }
+    #viewport-overlay {
+      position: absolute; top: 12px; left: 12px; right: 12px;
+      display: flex; justify-content: space-between; pointer-events: none; gap: 10px;
+    }
+    .view-pills { display: flex; gap: 6px; pointer-events: auto; flex-wrap: wrap; }
+    .pill-btn {
+      background: rgba(21,24,33,0.88); border: 1px solid var(--border); color: var(--text);
+      padding: 5px 10px; border-radius: 5px; font-size: 0.72rem; cursor: pointer;
+    }
+    .pill-btn.active, .pill-btn:hover { border-color: var(--accent); background: rgba(99,102,241,0.25); }
+    .stats-box {
+      background: rgba(21,24,33,0.9); border: 1px solid var(--border); padding: 8px 12px;
+      border-radius: 7px; font-size: 0.71rem; line-height: 1.48; color: var(--muted);
+      pointer-events: auto; text-align: right; min-width: 235px;
+    }
+    .stats-box strong { color: var(--text); font-family: monospace; }
+    .datum-tag { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 4px; }
+    #axis-legend {
+      position: absolute; bottom: 12px; left: 12px; background: rgba(21,24,33,0.88);
+      border: 1px solid var(--border); padding: 5px 10px; border-radius: 5px;
+      font-size: 0.7rem; color: var(--muted); pointer-events: none;
+    }
+    #floatingTooltip {
+      position: fixed; z-index: 9999; max-width: 260px; background: #0b0d13; color: #e2e8f0;
+      border: 1px solid #3b425e; box-shadow: 0 8px 24px rgba(0,0,0,0.65); padding: 7px 9px;
+      border-radius: 6px; font-size: 0.72rem; line-height: 1.38; pointer-events: none;
+      opacity: 0; transition: opacity 0.12s;
+    }
+    #floatingTooltip.visible { opacity: 1; }
+  </style>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div id="floatingTooltip"></div>
+
+  <aside id="sidebar">
+    <div class="sidebar-header">
+      <h1>ErgoCap STL Studio</h1>
+      <div class="header-actions">
+        <span class="badge">Watertight</span>
+        <button class="btn-small" id="btnToggleDebug" data-tip="Toggle live network & mesh geometry diagnostic logs.">Debug Log</button>
+      </div>
+    </div>
+
+    <div class="status-container">
+      <div class="status-row" id="statusRow">
+        <span id="statusText">Booting 3D engine...</span>
+        <span id="statusPercent">0%</span>
+      </div>
+      <div class="progress-track"><div class="progress-fill" id="progressBar"></div></div>
+    </div>
+
+    <div id="debugDrawer">
+      <div class="debug-toolbar">
+        <span>Diagnostics Log</span>
+        <div>
+          <button class="btn-small" id="btnCopyDebug">Copy</button>
+          <button class="btn-small" id="btnClearDebug">Clear</button>
+        </div>
+      </div>
+      <div id="debugLogOutput"></div>
+    </div>
+
+    <div class="controls-scroll">
+      <!-- 1. STL Source -->
+      <div class="section">
+        <div class="section-title">
+          <span>1. Sculpted Profile Source</span>
+          <button class="btn-small" id="btnReloadStl" data-tip="Re-download the selected STL file from GitHub.">Reload</button>
+        </div>
+        <div class="control-group">
+          <div class="control-label">
+            <span class="label-left">GitHub Repository <span class="tip-icon" data-tip="Choose an official sculpted keycap repository or select Custom Repo to fetch any public GitHub repo.">?</span></span>
+          </div>
+          <select id="repoSelect">
+            <option value="braindefender/KLP-Lame-Keycaps@master">KLP Lamé — braindefender/KLP-Lame-Keycaps</option>
+            <option value="vvhg1/clp-keycaps@main">CLP Sculpted — vvhg1/clp-keycaps</option>
+            <option value="BertPlasschaert/KLP-Lame-Keycaps-Rotated@master">KLP Lamé Rotated — BertPlasschaert</option>
+            <option value="rschenk/cfx_chicago_stenographer@master">Chicago Stenographer — Pseudoku / rschenk</option>
+            <option value="CUSTOM">Custom GitHub Repository (owner/repo)...</option>
+          </select>
+        </div>
+        <div class="control-group" id="customRepoGroup" style="display:none;">
+          <div style="display:flex; gap:5px;">
+            <input type="text" id="customRepoInput" placeholder="owner/repo@main" />
+            <button class="btn-small" id="btnFetchCustomRepo">Fetch</button>
+          </div>
+        </div>
+        <div class="control-row-2">
+          <div>
+            <div class="control-label">
+              <span class="label-left">Folder Filter <span class="tip-icon" data-tip="Filter repository files by stem type or spacing folder (e.g. Choc_Stem/Choc_Size for Geist TOTEM).">?</span></span>
+            </div>
+            <select id="folderFilter"><option value="ALL">All STLs</option></select>
+          </div>
+          <div>
+            <div class="control-label">
+              <span class="label-left"> STL File <span class="tip-icon" data-tip="Loads the exact binary STL mesh from the repository.">?</span></span>
+            </div>
+            <select id="stlFileSelect"></select>
+          </div>
+        </div>
+        <div class="control-group" id="shellSelectGroup" style="display:none;">
+          <div class="control-label">
+            <span class="label-left">Isolate Shell # <span class="tip-icon" data-tip="Multi-cap STL detected. Select which disconnected keycap shell to isolate.">?</span></span>
+          </div>
+          <select id="shellIndexSelect"></select>
+        </div>
+        <label class="file-drop" data-tip="Load any local .STL keycap file from your disk.">
+          <input type="file" id="localStlInput" accept=".stl" />
+          📂 Click or drop any local <strong>.STL</strong> file here
+        </label>
+      </div>
+
+      <!-- 2. Height & Bi-Directional Tilt -->
+      <div class="section">
+        <div class="section-title">
+          <span>2. Height & Bi-Directional Tilt</span>
+          <button class="btn-small" id="btnResetTiltHeight" data-tip="Reset height, pitch, and roll to native STL values.">Reset</button>
+        </div>
+        <div class="control-row-2">
+          <div>
+            <div class="control-label">
+              <span class="label-left">Target Height (mm) <span class="tip-icon" data-tip="Explicitly set the center top dish height (Z) in mm above the original skirt base. Walls extend automatically while the socket stays anchored.">?</span></span>
+            </div>
+            <input type="number" id="targetHeightMM" step="0.1" min="1.6" max="14.0" value="3.20" />
+          </div>
+          <div>
+            <div class="control-label">
+              <span class="label-left">Height Offset <span class="tip-icon" data-tip="Raises (+) or lowers (−) the sculpted top dish relative to native STL height.">?</span></span>
+              <span class="control-value" id="val-heightOffset">0.00 mm</span>
+            </div>
+            <input type="range" id="heightOffset" min="-1.20" max="6.00" step="0.05" value="0.00" style="margin-top:5px;" />
+          </div>
+        </div>
+        <div class="control-group">
+          <div class="control-label">
+            <span class="label-left">Pitch Angle (Up / Down) <span class="tip-icon" data-tip="Tilts the sculpted top dish forward (+) or backward (−).">?</span></span>
+            <span class="control-value" id="val-pitchAngle">0.0°</span>
+          </div>
+          <input type="range" id="pitchAngle" min="-22" max="22" step="0.5" value="0" />
+        </div>
+        <div class="control-group">
+          <div class="control-label">
+            <span class="label-left">Roll Angle (Left / Right) <span class="tip-icon" data-tip="Tilts the sculpted top laterally for splayed pinky columns or thumb keys while keeping the stem vertical.">?</span></span>
+            <span class="control-value" id="val-rollAngle">0.0°</span>
+          </div>
+          <input type="range" id="rollAngle" min="-22" max="22" step="0.5" value="0" />
+        </div>
+        <div class="control-group">
+          <div class="control-label">
+            <span class="label-left">Tilt Z-Compensation <span class="tip-icon" data-tip="Auto Minimal lifts the cap only when tilted steeply enough that the dipped rim approaches the skirt. Center Pivot locks center height.">?</span></span>
+            <span class="control-value" id="val-zCompMode">Auto Minimal</span>
+          </div>
+          <select id="zCompMode">
+            <option value="minimal">Auto Minimal (Lowest lip-free height when tilted)</option>
+            <option value="center">Center Pivot (Locks Target Height at center)</option>
+            <option value="full">Keep Low Edge at Original Height (Extend high wall only)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- 3. Home Key Relief -->
+      <div class="section">
+        <div class="section-title">
+          <span>3. Home Key Relief (Protruding & Reverse)</span>
+          <button class="btn-small" id="btnResetHoming" data-tip="Remove homing tactile relief.">Clear</button>
+        </div>
+        <div class="control-row-2">
+          <div>
+            <div class="control-label">
+              <span class="label-left">Style <span class="tip-icon" data-tip="Choose a tactile homing shape to fuse onto the top dish.">?</span></span>
+            </div>
+            <select id="homingStyle">
+              <option value="none">None</option>
+              <option value="bar">Classic Homing Bar</option>
+              <option value="wide_bar">Wide Ergonomic Bar</option>
+              <option value="dot">Single Center Dot</option>
+              <option value="double_dot">Twin Tactile Dots</option>
+              <option value="ring">Tactile Ring / Halo</option>
+              <option value="pill">Vertical Pill Ridge</option>
+            </select>
+          </div>
+          <div>
+            <div class="control-label">
+              <span class="label-left">Direction <span class="tip-icon" data-tip="Protruding (+) creates a raised bump; Recessed (−) creates an engraved reverse scoop/dimple.">?</span></span>
+            </div>
+            <select id="homingDirection">
+              <option value="1">Protruding (+ Raised)</option>
+              <option value="-1">Recessed (− Reverse)</option>
+            </select>
+          </div>
+        </div>
+        <div class="control-group">
+          <div class="control-label">
+            <span class="label-left">Relief Height / Depth <span class="tip-icon" data-tip="Amplitude in mm of the protruding or recessed homing mark.">?</span></span>
+            <span class="control-value" id="val-homingDepth">0.45 mm</span>
+          </div>
+          <input type="range" id="homingDepth" min="0.15" max="1.00" step="0.05" value="0.45" />
+        </div>
+        <div class="control-row-2">
+          <div>
+            <div class="control-label">
+              <span class="label-left">Scale <span class="tip-icon" data-tip="Scales the XY size of the homing shape.">?</span></span>
+              <span class="control-value" id="val-homingScale">100%</span>
+            </div>
+            <input type="range" id="homingScale" min="50" max="180" step="5" value="100" />
+          </div>
+          <div>
+            <div class="control-label">
+              <span class="label-left">Y-Offset <span class="tip-icon" data-tip="Shifts the homing shape forward (−Y) or backward (+Y).">?</span></span>
+              <span class="control-value" id="val-homingOffsetY">0.0 mm</span>
+            </div>
+            <input type="range" id="homingOffsetY" min="-4.5" max="4.5" step="0.25" value="0.0" />
+          </div>
+        </div>
+      </div>
+
+      <!-- 4. Arbitrary Letter / Legend -->
+      <div class="section">
+        <div class="section-title">
+          <span>4. Arbitrary Letter / Legend</span>
+          <button class="btn-small" id="btnClearLegend" data-tip="Clear text legend.">Clear</button>
+        </div>
+        <div class="control-row-2">
+          <div>
+            <div class="control-label">
+              <span class="label-left">Characters <span class="tip-icon" data-tip="Enter up to 4 characters or symbols. Adaptively subdivides only the top dish around the letter strokes.">?</span></span>
+            </div>
+            <input type="text" id="legendText" placeholder="e.g. F, J, ⌘" maxlength="4" value="" />
+          </div>
+          <div>
+            <div class="control-label">
+              <span class="label-left">Direction <span class="tip-icon" data-tip="Protruding (+) embosses the letter outward; Recessed (−) engraves the letter into the dish.">?</span></span>
+            </div>
+            <select id="legendDirection">
+              <option value="1">Protruding (+ Embossed)</option>
+              <option value="-1">Recessed (− Engraved)</option>
+            </select>
+          </div>
+        </div>
+        <div class="quick-char-bar">
+          <span class="char-chip" data-char="F">F</span><span class="char-chip" data-char="J">J</span>
+          <span class="char-chip" data-char="A">A</span><span class="char-chip" data-char="S">S</span>
+          <span class="char-chip" data-char="D">D</span><span class="char-chip" data-char="T">T</span>
+          <span class="char-chip" data-char="N">N</span><span class="char-chip" data-char="⌘">⌘</span>
+          <span class="char-chip" data-char="⌫">⌫</span><span class="char-chip" data-char="⏎">⏎</span>
+        </div>
+        <div class="control-row-2">
+          <div>
+            <div class="control-label">
+              <span class="label-left">Font <span class="tip-icon" data-tip="Font family used for generating the 2D Signed Distance Field.">?</span></span>
+            </div>
+            <select id="legendFont">
+              <option value="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif">Rounded Sans</option>
+              <option value="'Arial Black', Impact, sans-serif">Heavy Bold</option>
+              <option value="'SFMono-Regular', Consolas, monospace">Monospace</option>
+              <option value="Georgia, serif">Classic Serif</option>
+            </select>
+          </div>
+          <div>
+            <div class="control-label">
+              <span class="label-left">Depth/Height <span class="tip-icon" data-tip="Relief amplitude in mm.">?</span></span>
+              <span class="control-value" id="val-legendDepth">0.40 mm</span>
+            </div>
+            <input type="range" id="legendDepth" min="0.15" max="1.00" step="0.05" value="0.40" />
+          </div>
+        </div>
+        <div class="control-row-2">
+          <div>
+            <div class="control-label">
+              <span class="label-left">Size <span class="tip-icon" data-tip="Character height in mm.">?</span></span>
+              <span class="control-value" id="val-legendSize">5.2 mm</span>
+            </div>
+            <input type="range" id="legendSize" min="2.5" max="9.0" step="0.2" value="5.2" />
+          </div>
+          <div>
+            <div class="control-label">
+              <span class="label-left">Draft Bevel <span class="tip-icon" data-tip="Sidewall bevel width in mm for clean 3D print release.">?</span></span>
+              <span class="control-value" id="val-legendBevel">0.18 mm</span>
+            </div>
+            <input type="range" id="legendBevel" min="0.06" max="0.40" step="0.02" value="0.18" />
+          </div>
+        </div>
+        <div class="control-row-2">
+          <div>
+            <div class="control-label">
+              <span class="label-left">X-Offset <span class="tip-icon" data-tip="Horizontal shift in mm.">?</span></span>
+              <span class="control-value" id="val-legendOffsetX">0.0 mm</span>
+            </div>
+            <input type="range" id="legendOffsetX" min="-4.5" max="4.5" step="0.25" value="0.0" />
+          </div>
+          <div>
+            <div class="control-label">
+              <span class="label-left">Y-Offset <span class="tip-icon" data-tip="Vertical shift in mm.">?</span></span>
+              <span class="control-value" id="val-legendOffsetY">0.0 mm</span>
+            </div>
+            <input type="range" id="legendOffsetY" min="-4.5" max="4.5" step="0.25" value="0.0" />
+          </div>
+        </div>
+      </div>
+
+      <!-- 5. Ambient Switch Spacer-Free Mod -->
+      <div class="section">
+        <div class="section-title">
+          <span>5. Ambient Switch Mod (Skirt vs. Stem)</span>
+          <button class="btn-small" id="btnResetSkirt" data-tip="Reset Skirt Trim and Prong Trim to 0.00 mm.">Reset</button>
+        </div>
+        <div class="control-group">
+          <div class="control-label">
+            <span class="label-left">Skirt Bottom Trim <span class="tip-icon" data-tip="Positive (+0.4 to +0.6 mm) trims ONLY the bottom edge of the walls upward while keeping the stem seat and top dish completely stationary—preventing Choc Ambient switch housing collisions without spacers or height increase.">?</span></span>
+            <span class="control-value" id="val-skirtTrim">0.00 mm</span>
+          </div>
+          <input type="range" id="skirtTrim" min="-0.60" max="0.90" step="0.05" value="0.00" />
+        </div>
+        <div class="control-group">
+          <div class="control-label">
+            <span class="label-left">Stem Prong Tip Trim <span class="tip-icon" data-tip="Shortens (+) or lengthens (−) the bottom tips of the protruding stem legs.">?</span></span>
+            <span class="control-value" id="val-prongTrim">0.00 mm</span>
+          </div>
+          <input type="range" id="prongTrim" min="-0.40" max="0.50" step="0.05" value="0.00" />
+        </div>
+      </div>
+
+      <!-- 6. Socket & Tolerances -->
+      <div class="section">
+        <div class="section-title"><span>6. Socket & 3D Print Tolerances</span></div>
+        <div class="control-group">
+          <div class="control-label">
+            <span class="label-left">Socket Mode <span class="tip-icon" data-tip="Keep the original STL stem or replace it with Choc v1 (0°/90°) or Cherry MX.">?</span></span>
+          </div>
+          <select id="socketMode">
+            <option value="original">Keep Original STL Socket</option>
+            <option value="choc_v1">Replace with Choc v1 Socket (0°)</option>
+            <option value="choc_v1_rot90">Replace with Choc v1 Socket (Rotated 90°)</option>
+            <option value="mx">Replace with Cherry MX Cruciform Socket</option>
+          </select>
+        </div>
+        <div class="control-row-2">
+          <div>
+            <div class="control-label">
+              <span class="label-left">Stem Tolerance <span class="tip-icon" data-tip="Positive (+) loosens fit (thinner Choc legs / wider MX slot); negative (−) tightens fit.">?</span></span>
+              <span class="control-value" id="val-stemTolerance">0.00 mm</span>
+            </div>
+            <input type="range" id="stemTolerance" min="-0.12" max="0.15" step="0.01" value="0.00" />
+          </div>
+          <div>
+            <div class="control-label">
+              <span class="label-left">Outer XY Offset <span class="tip-icon" data-tip="Adjusts outer keycap width and depth in mm without scaling the stem socket.">?</span></span>
+              <span class="control-value" id="val-xyScaleOffset">0.00 mm</span>
+            </div>
+            <input type="range" id="xyScaleOffset" min="-0.30" max="0.30" step="0.02" value="0.00" />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sidebar-footer">
+      <button class="btn-primary" id="btnExportSTL" data-tip="Export the current watertight 3D mesh as a binary .STL file.">Download Modified .STL</button>
+    </div>
+  </aside>
+
+  <main id="viewport-container">
+    <div id="viewport-overlay">
+      <div class="view-pills">
+        <button class="pill-btn active" id="btnShowDatumPlanes" data-tip="Toggle Cyan (Skirt Bottom) and Green (Protruding Stem Tip) reference planes.">Datum Planes</button>
+        <button class="pill-btn" id="btnShowOriginalGhost" data-tip="Overlay amber wireframe of unmodified STL.">Original STL Ghost</button>
+        <button class="pill-btn" id="btnCrossSection" data-tip="Cut keycap at X = 0 to inspect internal ceiling & stem seat.">Cross-Section (X=0)</button>
+        <button class="pill-btn" id="btnWireframe" data-tip="Toggle triangle wireframe view.">Wireframe</button>
+        <button class="pill-btn" id="btnBottomView" data-tip="Inspect underside & protruding socket stem.">Underside View</button>
+      </div>
+      <div class="stats-box">
+        <div><span class="datum-tag" style="background:#818cf8"></span>Center Dish Z / Installed: <strong id="stat-installedH">—</strong></div>
+        <div><span class="datum-tag" style="background:#06b6d4"></span>Skirt Bottom Plane ($Z_{\text{skirt}}$): <strong id="stat-skirtZ">—</strong></div>
+        <div><span class="datum-tag" style="background:#10b981"></span>Stem Protrusion Below Skirt: <strong id="stat-stemProtrude">—</strong></div>
+        <div>Footprint: <strong id="stat-footprint">—</strong> | Tris: <strong id="stat-tris">—</strong></div>
+      </div>
+    </div>
+    <div id="axis-legend">Cyan Plane = Outer Skirt Bottom &nbsp;|&nbsp; Green Plane = Protruding Stem Tip &nbsp;|&nbsp; Left-Click: Orbit, Right-Click: Pan</div>
+  </main>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { STLLoader } from 'three/addons/loaders/STLLoader.js';
+    import { STLExporter } from 'three/addons/exporters/STLExporter.js';
+
+    const debugLogOutput = document.getElementById('debugLogOutput');
+    const statusText = document.getElementById('statusText');
+    const statusPercent = document.getElementById('statusPercent');
+    const statusRow = document.getElementById('statusRow');
+    const progressBar = document.getElementById('progressBar');
+
+    function logDebug(msg, level = 'INFO') {
+      const ts = new Date().toISOString().slice(11, 23);
+      debugLogOutput.textContent += `[${ts}] [${level}] ${msg}\n`;
+      debugLogOutput.scrollTop = debugLogOutput.scrollHeight;
+    }
+
+    function setProgress(text, pct, isErr = false) {
+      statusText.textContent = text;
+      statusPercent.textContent = pct !== null ? `${Math.round(pct)}%` : '';
+      progressBar.style.width = `${Math.max(0, Math.min(100, pct || 0))}%`;
+      statusRow.classList.toggle('error', isErr);
+    }
+
+    document.getElementById('btnToggleDebug').addEventListener('click', () => document.getElementById('debugDrawer').classList.toggle('open'));
+    document.getElementById('btnClearDebug').addEventListener('click', () => { debugLogOutput.textContent = ''; });
+    document.getElementById('btnCopyDebug').addEventListener('click', () => navigator.clipboard.writeText(debugLogOutput.textContent));
+
+    const floatingTooltip = document.getElementById('floatingTooltip');
+    function posTip(e) {
+      const pad = 12, r = floatingTooltip.getBoundingClientRect();
+      let x = e.clientX + pad, y = e.clientY + pad;
+      if (x + r.width > window.innerWidth - 8) x = e.clientX - r.width - pad;
+      if (y + r.height > window.innerHeight - 8) y = e.clientY - r.height - pad;
+      floatingTooltip.style.left = `${Math.max(6, x)}px`;
+      floatingTooltip.style.top = `${Math.max(6, y)}px`;
+    }
+    document.addEventListener('mouseover', (e) => {
+      const t = e.target.closest('[data-tip]');
+      if (!t) { floatingTooltip.classList.remove('visible'); return; }
+      floatingTooltip.textContent = t.getAttribute('data-tip');
+      floatingTooltip.classList.add('visible');
+      posTip(e);
+    });
+    document.addEventListener('mousemove', (e) => { if (floatingTooltip.classList.contains('visible')) posTip(e); });
+    document.addEventListener('mouseout', (e) => { if (e.target.closest('[data-tip]')) floatingTooltip.classList.remove('visible'); });
+
+    // 1. BOOT 3D ENGINE IMMEDIATELY
+    const container = document.getElementById('viewport-container');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0d0f14);
+
+    const w0 = container.clientWidth || (window.innerWidth - 410);
+    const h0 = container.clientHeight || window.innerHeight;
+    const camera = new THREE.PerspectiveCamera(40, w0 / h0, 0.1, 500);
+    camera.position.set(21, -24, 15);
+    camera.up.set(0, 0, 1);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(w0, h0);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.localClippingEnabled = true;
+    container.appendChild(renderer.domElement);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.06;
+    controls.target.set(0, 0, 1.4);
+
+    scene.add(new THREE.AmbientLight(0xdbe4ff, 0.85));
+    const dLight1 = new THREE.DirectionalLight(0xffffff, 1.45);
+    dLight1.position.set(20, -26, 36);
+    scene.add(dLight1);
+    const dLight2 = new THREE.DirectionalLight(0x818cf8, 0.75);
+    dLight2.position.set(-25, 22, -18);
+    scene.add(dLight2);
+
+    const refGrid = new THREE.GridHelper(36, 36, 0x3b4262, 0x1a1e2d);
+    refGrid.rotation.x = Math.PI / 2;
+    refGrid.position.z = -1.85;
+    scene.add(refGrid);
+
+    const clipPlane = new THREE.Plane(new THREE.Vector3(-1, 0, 0), 0);
+    const keycapMaterial = new THREE.MeshPhysicalMaterial({
+      color: 0x6366f1, roughness: 0.28, metalness: 0.08, clearcoat: 0.22,
+      side: THREE.DoubleSide, clippingPlanes: []
+    });
+    const ghostOriginalMaterial = new THREE.MeshBasicMaterial({
+      color: 0xf59e0b, wireframe: true, transparent: true, opacity: 0.28
+    });
+
+    let activeKeycapMesh = null, ghostOriginalMesh = null;
+    const datumPlanesGroup = new THREE.Group();
+    scene.add(datumPlanesGroup);
+
+    function animate() {
+      requestAnimationFrame(animate);
+      controls.update();
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    // 2. GEOMETRY HELPERS & INSTANT STARTER MESH
+    function pushQuad(out, v0, v1, v2, v3) {
+      out.push(v0[0],v0[1],v0[2], v1[0],v1[1],v1[2], v2[0],v2[1],v2[2], v0[0],v0[1],v0[2], v2[0],v2[1],v2[2], v3[0],v3[1],v3[2]);
+    }
+    function pushTri(out, v0, v1, v2) {
+      out.push(v0[0],v0[1],v0[2], v1[0],v1[1],v1[2], v2[0],v2[1],v2[2]);
+    }
+
+    function buildChocProngBox(out, xc, yc, w, d, zBottom, zTopFn, tipChamfer = 0.25) {
+      const nx = 4, ny = 4, topGrid = [];
+      for (let iy = 0; iy <= ny; iy++) {
+        const row = [], v = -1 + (2 * iy) / ny;
+        for (let ix = 0; ix <= nx; ix++) {
+          const u = -1 + (2 * ix) / nx, x = xc + u * (w * 0.5), y = yc + v * (d * 0.5);
+          row.push([x, y, zTopFn(x, y)]);
+        }
+        topGrid.push(row);
+      }
+      for (let iy = 0; iy < ny; iy++) {
+        for (let ix = 0; ix < nx; ix++) pushQuad(out, topGrid[iy][ix], topGrid[iy][ix+1], topGrid[iy+1][ix+1], topGrid[iy+1][ix]);
+      }
+      const perimTop = [];
+      for (let ix = 0; ix < nx; ix++) perimTop.push(topGrid[0][ix]);
+      for (let iy = 0; iy < ny; iy++) perimTop.push(topGrid[iy][nx]);
+      for (let ix = nx; ix > 0; ix--) perimTop.push(topGrid[ny][ix]);
+      for (let iy = ny; iy > 0; iy--) perimTop.push(topGrid[iy][0]);
+
+      const zMid = zBottom + tipChamfer;
+      const perimMid = perimTop.map(p => [p[0], p[1], zMid]);
+      const perimBot = perimTop.map(p => [xc + (p[0] - xc) * 0.72, yc + (p[1] - yc) * 0.82, zBottom]);
+      for (let i = 0; i < perimTop.length; i++) {
+        const next = (i + 1) % perimTop.length;
+        pushQuad(out, perimMid[i], perimMid[next], perimTop[next], perimTop[i]);
+        pushQuad(out, perimBot[i], perimBot[next], perimMid[next], perimMid[i]);
+        pushTri(out, [xc, yc, zBottom], perimBot[next], perimBot[i]);
+      }
+    }
+
+    function buildMXCruciformSocket(out, zBottom, zTopFn, tolerance) {
+      const outerR = 2.75, a = (4.10 + tolerance) * 0.5, s = (1.17 + tolerance) * 0.5, slotRoofZ = zBottom + 3.60;
+      const corners = [[a,-s],[a,s],[s,s],[s,a],[-s,a],[-s,s],[-a,s],[-a,-s],[-s,-s],[-s,-a],[s,-a],[s,-s]];
+      const innerPts = [], outerPts = [];
+      for (let i = 0; i < 12; i++) {
+        const p0 = corners[i], p1 = corners[(i + 1) % 12];
+        for (let k = 0; k < 3; k++) {
+          const t = k / 3, ix = p0[0] + (p1[0] - p0[0]) * t, iy = p0[1] + (p1[1] - p0[1]) * t;
+          innerPts.push([ix, iy]);
+          const ang = Math.atan2(iy, ix);
+          outerPts.push([outerR * Math.cos(ang), outerR * Math.sin(ang)]);
+        }
+      }
+      for (let i = 0; i < innerPts.length; i++) {
+        const next = (i + 1) % innerPts.length, in0 = innerPts[i], in1 = innerPts[next], out0 = outerPts[i], out1 = outerPts[next];
+        const zt0 = zTopFn(out0[0], out0[1]), zt1 = zTopFn(out1[0], out1[1]);
+        pushQuad(out, [in0[0], in0[1], zBottom], [in1[0], in1[1], zBottom], [out1[0], out1[1], zBottom], [out0[0], out0[1], zBottom]);
+        pushQuad(out, [out0[0], out0[1], zBottom], [out1[0], out1[1], zBottom], [out1[0], out1[1], zt1], [out0[0], out0[1], zt0]);
+        pushQuad(out, [in1[0], in1[1], zBottom], [in0[0], in0[1], zBottom], [in0[0], in0[1], slotRoofZ], [in1[0], in1[1], slotRoofZ]);
+        pushTri(out, [0, 0, slotRoofZ + 0.3], [in1[0], in1[1], slotRoofZ], [in0[0], in0[1], slotRoofZ]);
+        pushTri(out, [0, 0, zTopFn(0, 0)], [out0[0], out0[1], zt0], [out1[0], out1[1], zt1]);
+      }
+    }
+
+    function createFallbackStarterGeometry() {
+      const M = 22, K = 8, pos = [], W = 17.4, D = 16.4, tW = 14.0, tD = 13.0, zSeat = 1.35;
+      const topG = [], ceilG = [];
+      function rRect(u, v, w, d, r) {
+        const a = w * 0.5, b = d * 0.5, x0 = u * a, y0 = v * b, xc = a - r, yc = b - r;
+        if (Math.abs(x0) > xc && Math.abs(y0) > yc) {
+          const xi = (Math.abs(x0) - xc) / r, et = (Math.abs(y0) - yc) / r;
+          return [Math.sign(x0)*(xc + r*xi*Math.sqrt(Math.max(0, 1 - 0.5*et*et))), Math.sign(y0)*(yc + r*et*Math.sqrt(Math.max(0, 1 - 0.5*xi*xi)))];
+        }
+        return [x0, y0];
+      }
+      for (let j = 0; j <= M; j++) {
+        const v = -1 + (2 * j) / M, tR = [], cR = [];
+        for (let i = 0; i <= M; i++) {
+          const u = -1 + (2 * i) / M;
+          const [xt, yt] = rRect(u, v, tW, tD, 2.2), [xc, yc] = rRect(u, v, tW - 2.2, tD - 2.2, 1.4);
+          const zDish = 2.65 + 1.35 * u * u + 0.55 * v * v - 0.15 * v * v * v * v;
+          tR.push([xt, yt, zDish]);
+          cR.push([xc, yc, zSeat]);
+        }
+        topG.push(tR); ceilG.push(cR);
+      }
+      for (let j = 0; j < M; j++) {
+        for (let i = 0; i < M; i++) {
+          pushQuad(pos, topG[j][i], topG[j][i+1], topG[j+1][i+1], topG[j+1][i]);
+          pushQuad(pos, ceilG[j][i], ceilG[j+1][i], ceilG[j+1][i+1], ceilG[j][i+1]);
+        }
+      }
+      const pUV = [], pTop = [], pCeil = [];
+      for (let i = 0; i < M; i++) { pUV.push([-1+(2*i)/M, -1]); pTop.push(topG[0][i]); pCeil.push(ceilG[0][i]); }
+      for (let j = 0; j < M; j++) { pUV.push([1, -1+(2*j)/M]); pTop.push(topG[j][M]); pCeil.push(ceilG[j][M]); }
+      for (let i = M; i > 0; i--) { pUV.push([-1+(2*i)/M, 1]); pTop.push(topG[M][i]); pCeil.push(ceilG[M][i]); }
+      for (let j = M; j > 0; j--) { pUV.push([-1, -1+(2*j)/M]); pTop.push(topG[j][0]); pCeil.push(ceilG[j][0]); }
+
+      const outRings = [], inRings = [];
+      for (let k = 0; k <= K; k++) {
+        const s = k / K, oR = [], iR = [];
+        for (let p = 0; p < pUV.length; p++) {
+          const [u, v] = pUV[p];
+          const [xo, yo] = rRect(u, v, W, D, 2.6), [xi, yi] = rRect(u, v, W - 2.6, D - 2.6, 1.6);
+          oR.push([xo + (pTop[p][0] - xo) * s, yo + (pTop[p][1] - yo) * s, pTop[p][2] * s]);
+          iR.push([xi + (pCeil[p][0] - xi) * s, yi + (pCeil[p][1] - yi) * s, pCeil[p][2] * s]);
+        }
+        outRings.push(oR); inRings.push(iR);
+      }
+      for (let k = 0; k < K; k++) {
+        for (let p = 0; p < pUV.length; p++) {
+          const next = (p + 1) % pUV.length;
+          pushQuad(pos, outRings[k][p], outRings[k][next], outRings[k+1][next], outRings[k+1][p]);
+          pushQuad(pos, inRings[k][next], inRings[k][p], inRings[k+1][p], inRings[k+1][next]);
+        }
+      }
+      for (let p = 0; p < pUV.length; p++) {
+        const next = (p + 1) % pUV.length;
+        pushQuad(pos, outRings[0][next], outRings[0][p], inRings[0][p], inRings[0][next]);
+      }
+      buildChocProngBox(pos, -2.85, 0, 1.2, 2.95, -1.85, () => zSeat + 0.25);
+      buildChocProngBox(pos,  2.85, 0, 1.2, 2.95, -1.85, () => zSeat + 0.25);
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+      return g;
+    }
+
+    // 3. GITHUB REPO INDEXER & LFS-AWARE BINARY STL DOWNLOADER
+    const stlLoader = new STLLoader();
+    let currentRepoSpec = 'braindefender/KLP-Lame-Keycaps@master';
+    let currentRepoFiles = [], extractedShells = [], analyzedBaseCap = null, reliefPreparedCap = null;
+
+    const repoSelect = document.getElementById('repoSelect');
+    const customRepoGroup = document.getElementById('customRepoGroup');
+    const customRepoInput = document.getElementById('customRepoInput');
+    const folderFilter = document.getElementById('folderFilter');
+    const stlFileSelect = document.getElementById('stlFileSelect');
+    const shellSelectGroup = document.getElementById('shellSelectGroup');
+    const shellIndexSelect = document.getElementById('shellIndexSelect');
+
+    const VERIFIED_REPO_CATALOGS = {
+      "braindefender/KLP-Lame-Keycaps": {
+        branch: "master",
+        files: [
+          "/STL/Choc_Stem/Choc_Size/KLP-Lame-Saddle.stl",
+          "/STL/Choc_Stem/Choc_Size/KLP-Lame-Saddle-Homing.stl",
+          "/STL/Choc_Stem/Choc_Size/KLP-Lame-Saddle-Tilted.stl",
+          "/STL/Choc_Stem/Choc_Size/KLP-Lame-Normal.stl",
+          "/STL/Choc_Stem/Choc_Size/KLP-Lame-Normal-Homing.stl",
+          "/STL/Choc_Stem/Choc_Size/KLP-Lame-Normal-Tilted.stl",
+          "/STL/Choc_Stem/Choc_Size/KLP-Lame-Thumb.stl",
+          "/STL/Choc_Stem/MX_Size/KLP-Lame-Saddle.stl",
+          "/STL/Choc_Stem/MX_Size/KLP-Lame-Normal.stl",
+          "/STL/Choc_Stem/MX_Size/KLP-Lame-Thumb.stl",
+          "/STL/MX_Stem/MX_Size/KLP-Lame-Saddle.stl",
+          "/STL/MX_Stem/MX_Size/KLP-Lame-Normal.stl",
+          "/STL/MX_Stem/MX_Size/KLP-Lame-Thumb.stl"
+        ]
+      },
+      "vvhg1/clp-keycaps": {
+        branch: "main",
+        files: [
+          "/stl/Saddle.stl", "/stl/Saddle Homing.stl", "/stl/Dished.stl",
+          "/stl/Dished Homing.stl", "/stl/Thumb.stl", "/stl/Tilted 7°.stl",
+          "/stl/Tilted 14°.stl", "/stl/Tilted 7° Dished.stl", "/stl/Tilted 14° Dished.stl"
+        ]
+      },
+      "BertPlasschaert/KLP-Lame-Keycaps-Rotated": {
+        branch: "master",
+        files: [
+          "/STL/Choc_Stem/Choc_Size/KLP-Lame-Saddle.stl",
+          "/STL/Choc_Stem/Choc_Size/KLP-Lame-Saddle-Homing.stl",
+          "/STL/Choc_Stem/Choc_Size/KLP-Lame-Saddle-Tilted.stl",
+          "/STL/Choc_Stem/Choc_Size/KLP-Lame-Normal.stl",
+          "/STL/Choc_Stem/Choc_Size/KLP-Lame-Thumb.stl"
+        ]
+      },
+      "rschenk/cfx_chicago_stenographer": {
+        branch: "master",
+        files: [
+          "/stl/cs_row_r2_top.stl", "/stl/cs_row_r3_regular.stl",
+          "/stl/cs_row_r3_homerow_bar.stl", "/stl/cs_row_r3_homerow_dots.stl",
+          "/stl/cs_row_r4_bottom.stl", "/stl/cs_row_thumbs.stl"
+        ]
+      }
+    };
+
+    async function fetchRepoFileList(repoSpec) {
+      let [ownerRepo, prefBranch] = repoSpec.split('@');
+      ownerRepo = ownerRepo.trim().replace(/^https?:\/\/github\.com\//i, '').replace(/\/$/, '');
+      const branches = Array.from(new Set([prefBranch, 'master', 'main'].filter(Boolean)));
+      setProgress(`Indexing ${ownerRepo}...`, 15);
+      logDebug(`Indexing ${ownerRepo} (branches: ${branches.join(', ')})`);
+
+      for (const br of branches) {
+        try {
+          const res = await fetch(`https://data.jsdelivr.com/v1/package/gh/${ownerRepo}@${br}/flat`);
+          if (res.ok) {
+            const data = await res.json();
+            const stls = (data.files || []).map(f => f.name).filter(n => n.toLowerCase().endsWith('.stl'));
+            if (stls.length > 0) {
+              currentRepoSpec = `${ownerRepo}@${br}`;
+              logDebug(`jsDelivr indexed ${stls.length} STLs on ${br}`);
+              return stls;
+            }
+          }
+        } catch (e) { logDebug(`jsDelivr (${br}): ${e.message}`, 'WARN'); }
+      }
+
+      for (const br of branches) {
+        try {
+          const res = await fetch(`https://api.github.com/repos/${ownerRepo}/git/trees/${br}?recursive=1`);
+          if (res.ok) {
+            const data = await res.json();
+            const stls = (data.tree || []).filter(i => i.type === 'blob' && i.path.toLowerCase().endsWith('.stl')).map(i => '/' + i.path);
+            if (stls.length > 0) {
+              currentRepoSpec = `${ownerRepo}@${br}`;
+              logDebug(`GitHub API indexed ${stls.length} STLs on ${br}`);
+              return stls;
+            }
+          }
+        } catch (e) { logDebug(`GitHub API (${br}): ${e.message}`, 'WARN'); }
+      }
+
+      if (VERIFIED_REPO_CATALOGS[ownerRepo]) {
+        const cat = VERIFIED_REPO_CATALOGS[ownerRepo];
+        currentRepoSpec = `${ownerRepo}@${cat.branch}`;
+        logDebug(`Loaded built-in verified catalog for ${ownerRepo}`);
+        return cat.files;
+      }
+      setProgress(`Could not index ${ownerRepo}. Using active mesh.`, 100, true);
+      return [];
+    }
+
+    function populateFolderAndFileSelects(stlPaths) {
+      if (!stlPaths || !stlPaths.length) return;
+      const sorted = [...stlPaths].sort((a, b) => {
+        const ac = /combined|assemblies|part|row|column|plate/i.test(a) ? 1 : 0;
+        const bc = /combined|assemblies|part|row|column|plate/i.test(b) ? 1 : 0;
+        return ac !== bc ? ac - bc : a.localeCompare(b);
+      });
+      currentRepoFiles = sorted;
+      const folders = new Set(['ALL']);
+      sorted.forEach(p => {
+        const pts = p.split('/').filter(Boolean);
+        if (pts.length > 1) folders.add(pts.slice(0, -1).join('/'));
+      });
+      folderFilter.innerHTML = '';
+      folders.forEach(f => {
+        const o = document.createElement('option');
+        o.value = f; o.textContent = f === 'ALL' ? `All STL Files (${sorted.length})` : f;
+        folderFilter.appendChild(o);
+      });
+      const chocDef = Array.from(folders).find(f => /Choc_Stem\/Choc_Size$/i.test(f) || /choc/i.test(f));
+      if (chocDef) folderFilter.value = chocDef;
+      filterStlSelectByFolder();
+    }
+
+    function filterStlSelectByFolder() {
+      const f = folderFilter.value;
+      const list = f === 'ALL' ? currentRepoFiles : currentRepoFiles.filter(p => p.startsWith('/' + f + '/'));
+      stlFileSelect.innerHTML = '';
+      list.forEach(p => {
+        const o = document.createElement('option');
+        o.value = p; o.textContent = p.split('/').slice(-2).join(' / ');
+        stlFileSelect.appendChild(o);
+      });
+      const pref = list.findIndex(p => /saddle\.stl$/i.test(p) || /r3_regular\.stl$/i.test(p));
+      if (pref >= 0) stlFileSelect.selectedIndex = pref;
+      if (stlFileSelect.value) loadExactStlFromRepo(currentRepoSpec, stlFileSelect.value);
+    }
+
+    function isGitLfsPointer(buf) {
+      if (!buf || buf.byteLength > 512) return false;
+      const txt = new TextDecoder().decode(new Uint8Array(buf, 0, Math.min(80, buf.byteLength)));
+      return txt.startsWith('version https://git-lfs.github.com/spec/');
+    }
+
+    async function loadExactStlFromRepo(repoSpec, filePath) {
+      const [ownerRepo, branch] = repoSpec.split('@');
+      const branches = Array.from(new Set([branch, 'master', 'main'].filter(Boolean)));
+      const enc = filePath.split('/').map(encodeURIComponent).join('/');
+      const name = filePath.split('/').pop();
+      setProgress(`Fetching ${name}...`, 50);
+
+      const urls = [];
+      for (const br of branches) {
+        urls.push(`https://cdn.jsdelivr.net/gh/${ownerRepo}@${br}${enc}`);
+        urls.push(`https://raw.githubusercontent.com/${ownerRepo}/${br}${enc}`);
+        urls.push(`https://media.githubusercontent.com/media/${ownerRepo}/${br}${enc}`);
+      }
+
+      for (const u of urls) {
+        try {
+          logDebug(`GET ${u}`);
+          const res = await fetch(u);
+          if (!res.ok) continue;
+          const buf = await res.arrayBuffer();
+          if (isGitLfsPointer(buf)) {
+            logDebug(`Git LFS pointer at ${u}; trying media mirror...`, 'WARN');
+            continue;
+          }
+          if (buf && buf.byteLength > 200) {
+            logDebug(`Loaded ${name} (${(buf.byteLength / 1024).toFixed(1)} KB)`);
+            processLoadedStlBuffer(buf, name);
+            setProgress(`Ready: ${name}`, 100);
+            return;
+          }
+        } catch (e) { logDebug(`Mirror error: ${e.message}`, 'WARN'); }
+      }
+      setProgress(`Could not fetch ${name} (check Debug Log)`, 100, true);
+    }
+
+    // 4. SHELL SPLITTER & EXACT DATUM ANALYZER
+    function extractConnectedShells(bufferGeo) {
+      const pos = bufferGeo.getAttribute('position'), triCount = pos.count / 3;
+      const vMap = new Map(), tKeys = new Array(triCount);
+      for (let t = 0; t < triCount; t++) {
+        const ks = [];
+        for (let k = 0; k < 3; k++) {
+          const idx = t * 3 + k;
+          const key = `${Math.round(pos.getX(idx)*200)}_${Math.round(pos.getY(idx)*200)}_${Math.round(pos.getZ(idx)*200)}`;
+          ks.push(key);
+          let l = vMap.get(key);
+          if (!l) { l = []; vMap.set(key, l); }
+          l.push(t);
+        }
+        tKeys[t] = ks;
+      }
+      const vis = new Uint8Array(triCount), shells = [];
+      for (let t = 0; t < triCount; t++) {
+        if (vis[t]) continue;
+        const q = [t], comp = [];
+        vis[t] = 1;
+        while (q.length) {
+          const c = q.pop();
+          comp.push(c);
+          for (let k = 0; k < 3; k++) {
+            const nbs = vMap.get(tKeys[c][k]);
+            for (let n = 0; n < nbs.length; n++) {
+              if (!vis[nbs[n]]) { vis[nbs[n]] = 1; q.push(nbs[n]); }
+            }
+          }
+        }
+        if (comp.length > 40) shells.push(comp);
+      }
+      return shells.map(comp => {
+        const arr = new Float32Array(comp.length * 9);
+        let p = 0;
+        for (let i = 0; i < comp.length; i++) {
+          const b = comp[i] * 3;
+          for (let k = 0; k < 3; k++) { arr[p++] = pos.getX(b+k); arr[p++] = pos.getY(b+k); arr[p++] = pos.getZ(b+k); }
+        }
+        const g = new THREE.BufferGeometry();
+        g.setAttribute('position', new THREE.BufferAttribute(arr, 3));
+        g.computeBoundingBox();
+        return g;
+      });
+    }
+
+    function analyzeExactKeycapMesh(rawGeo) {
+      const geo = rawGeo.clone();
+      geo.computeBoundingBox();
+      let bb = geo.boundingBox;
+      let sx = bb.max.x - bb.min.x, sy = bb.max.y - bb.min.y, sz = bb.max.z - bb.min.z;
+
+      if (sx > 30 || sy > 30) {
+        const pos = geo.getAttribute('position'), cx = bb.min.x + 9.2, cy = bb.min.y + 9.2, keep = [];
+        for (let i = 0; i < pos.count; i += 3) {
+          const mx = (pos.getX(i)+pos.getX(i+1)+pos.getX(i+2))/3, my = (pos.getY(i)+pos.getY(i+1)+pos.getY(i+2))/3;
+          if (Math.abs(mx - cx) <= 9.6 && Math.abs(my - cy) <= 9.6) {
+            for (let k = 0; k < 3; k++) keep.push(pos.getX(i+k), pos.getY(i+k), pos.getZ(i+k));
+          }
+        }
+        if (keep.length > 100) geo.setAttribute('position', new THREE.Float32BufferAttribute(keep, 3));
+        geo.computeBoundingBox(); bb = geo.boundingBox;
+        sx = bb.max.x - bb.min.x; sy = bb.max.y - bb.min.y; sz = bb.max.z - bb.min.z;
+      }
+
+      if (sy < sz && sy < sx && sz > 13) {
+        geo.rotateX(Math.PI / 2);
+        geo.computeBoundingBox(); bb = geo.boundingBox;
+      }
+
+      const cx = (bb.min.x + bb.max.x) * 0.5, cy = (bb.min.y + bb.max.y) * 0.5;
+      const width = bb.max.x - bb.min.x, depth = bb.max.y - bb.min.y;
+      const pos = geo.getAttribute('position'), vCount = pos.count;
+
+      for (let i = 0; i < vCount; i++) {
+        pos.setX(i, pos.getX(i) - cx);
+        pos.setY(i, pos.getY(i) - cy);
+      }
+
+      let zSkirtOrig = Infinity;
+      for (let i = 0; i < vCount; i++) {
+        const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
+        if ((Math.abs(x) > width * 0.36 || Math.abs(y) > depth * 0.36) && z < zSkirtOrig) zSkirtOrig = z;
+      }
+      if (!isFinite(zSkirtOrig)) zSkirtOrig = bb.min.z;
+
+      let zMinStem = Infinity, zMaxTop = -Infinity;
+      for (let i = 0; i < vCount; i++) {
+        const zs = pos.getZ(i) - zSkirtOrig;
+        pos.setZ(i, zs);
+        if (zs < zMinStem) zMinStem = zs;
+        if (zs > zMaxTop) zMaxTop = zs;
+      }
+
+      geo.computeVertexNormals();
+      const norm = geo.getAttribute('normal');
+      const ceilS = [], topS = [];
+      for (let i = 0; i < vCount; i += 3) {
+        const mx = (pos.getX(i)+pos.getX(i+1)+pos.getX(i+2))/3, my = (pos.getY(i)+pos.getY(i+1)+pos.getY(i+2))/3, mz = (pos.getZ(i)+pos.getZ(i+1)+pos.getZ(i+2))/3;
+        const nz = norm.getZ(i), r = Math.hypot(mx, my);
+        if (r > 2.2 && r < 5.8 && nz < -0.45 && mz > 0.3 && mz < zMaxTop - 0.4) ceilS.push(mz);
+        if (r < 2.5 && nz > 0.45 && mz > 1.0) topS.push(mz);
+      }
+      ceilS.sort((a, b) => a - b); topS.sort((a, b) => b - a);
+      const zSeat = ceilS.length ? ceilS[Math.floor(ceilS.length * 0.65)] : Math.max(1.15, zMaxTop * 0.38);
+      const zTopCenter = topS.length ? topS[Math.floor(topS.length * 0.2)] : zMaxTop - 0.8;
+      const zDishSplit = Math.min(zTopCenter - 0.25, Math.max(zSeat + 0.22, 1.35));
+
+      return { basePositions: new Float32Array(pos.array), width, depth, zMinStem, zMaxTop, zSeat, zTopCenter, zDishSplit };
+    }
+
+    function syncHeightInputsFromBaseCap() {
+      if (!analyzedBaseCap) return;
+      const off = parseFloat(document.getElementById('heightOffset').value) || 0;
+      document.getElementById('targetHeightMM').value = (analyzedBaseCap.zTopCenter + off).toFixed(2);
+    }
+
+    function processLoadedStlBuffer(buf, name = 'STL') {
+      try {
+        const parsed = stlLoader.parse(buf);
+        extractedShells = extractConnectedShells(parsed);
+        if (extractedShells.length > 1) {
+          shellSelectGroup.style.display = 'block';
+          shellIndexSelect.innerHTML = '';
+          extractedShells.forEach((s, idx) => {
+            const o = document.createElement('option');
+            o.value = idx; o.textContent = `Keycap Shell #${idx + 1} (${(s.getAttribute('position').count / 3).toLocaleString()} tris)`;
+            shellIndexSelect.appendChild(o);
+          });
+        } else {
+          shellSelectGroup.style.display = 'none';
+        }
+        analyzedBaseCap = analyzeExactKeycapMesh(extractedShells[0] || parsed);
+        syncHeightInputsFromBaseCap();
+        rebuildReliefPreparedCap();
+        rebuildModifiedMesh();
+      } catch (e) {
+        logDebug(`STL Parse Error (${name}): ${e.message}`, 'ERROR');
+      }
+    }
+
+    // 5. 2D SDF & ADAPTIVE SUBDIVISION FOR HOMING + ARBITRARY LEGENDS
+    const SDF_RES = 320;
+    const can2d = document.createElement('canvas');
+    can2d.width = SDF_RES; can2d.height = SDF_RES;
+    const ctx2d = can2d.getContext('2d', { willReadFrequently: true });
+
+    function edt1d(f, d, v, z, n) {
+      let k = 0; v[0] = 0; z[0] = -1e20; z[1] = 1e20;
+      for (let q = 1; q < n; q++) {
+        let s = ((f[q] + q * q) - (f[v[k]] + v[k] * v[k])) / (2 * q - 2 * v[k]);
+        while (s <= z[k]) { k--; s = ((f[q] + q * q) - (f[v[k]] + v[k] * v[k])) / (2 * q - 2 * v[k]); }
+        k++; v[k] = q; z[k] = s; z[k + 1] = 1e20;
+      }
+      k = 0;
+      for (let q = 0; q < n; q++) {
+        while (z[k + 1] < q) k++;
+        const dx = q - v[k]; d[q] = dx * dx + f[v[k]];
+      }
+    }
+
+    function compute2DSignedDistanceMM(mask, res, spanMM) {
+      const INF = 1e12, fIn = new Float32Array(res * res), fOut = new Float32Array(res * res);
+      for (let i = 0; i < res * res; i++) { fIn[i] = mask[i] ? 0 : INF; fOut[i] = mask[i] ? INF : 0; }
+      const f1 = new Float32Array(res), d1 = new Float32Array(res), v = new Int32Array(res), z = new Float32Array(res + 1);
+      function run(g) {
+        for (let y = 0; y < res; y++) {
+          const ro = y * res;
+          for (let x = 0; x < res; x++) f1[x] = g[ro + x];
+          edt1d(f1, d1, v, z, res);
+          for (let x = 0; x < res; x++) g[ro + x] = d1[x];
+        }
+        for (let x = 0; x < res; x++) {
+          for (let y = 0; y < res; y++) f1[y] = g[y * res + x];
+          edt1d(f1, d1, v, z, res);
+          for (let y = 0; y < res; y++) g[y * res + x] = d1[y];
+        }
+      }
+      run(fIn); run(fOut);
+      const px = spanMM / res, sdf = new Float32Array(res * res);
+      for (let i = 0; i < res * res; i++) {
+        // Positive inside the letter stroke, negative on the surrounding keycap dish
+        sdf[i] = (mask[i] ? (Math.sqrt(fOut[i]) - 0.5) : -(Math.sqrt(fIn[i]) - 0.5)) * px;
+      }
+      return sdf;
+    }
+
+    function evalHoming(x, y, cfg, capD) {
+      if (cfg.style === 'none') return { dz: 0, near: false };
+      const sc = cfg.scale, defY = (cfg.style === 'bar' || cfg.style === 'wide_bar') ? -capD * 0.22 : 0;
+      const dx = x / sc, dy = (y - (defY + cfg.offsetY)) / sc;
+      let p = 0, dist = 99;
+      if (cfg.style === 'dot') {
+        const R = 0.90, d = Math.hypot(dx, dy); dist = (d - R) * sc;
+        if (d < R) p = Math.cos((Math.PI * 0.5) * (d / R));
+      } else if (cfg.style === 'double_dot') {
+        const R = 0.72, d = Math.min(Math.hypot(dx - 1.45, dy), Math.hypot(dx + 1.45, dy)); dist = (d - R) * sc;
+        if (d < R) p = Math.cos((Math.PI * 0.5) * (d / R));
+      } else if (cfg.style === 'bar' || cfg.style === 'wide_bar') {
+        const hl = cfg.style === 'wide_bar' ? 3.4 : 2.1, r = 0.58, d = Math.hypot(Math.max(0, Math.abs(dx) - hl), dy); dist = (d - r) * sc;
+        if (d < r) p = Math.cos((Math.PI * 0.5) * (d / r));
+      } else if (cfg.style === 'ring') {
+        const rR = 1.75, tR = 0.52, d = Math.abs(Math.hypot(dx, dy) - rR); dist = (d - tR) * sc;
+        if (d < tR) p = Math.cos((Math.PI * 0.5) * (d / tR));
+      } else if (cfg.style === 'pill') {
+        const hh = 1.55, r = 0.65, d = Math.hypot(dx, Math.max(0, Math.abs(dy) - hh)); dist = (d - r) * sc;
+        if (d < r) p = Math.cos((Math.PI * 0.5) * (d / r));
+      }
+      return { dz: cfg.direction * cfg.depth * p, near: dist < 0.65 };
+    }
+
+    function rebuildReliefPreparedCap() {
+      if (!analyzedBaseCap) return;
+      const hCfg = {
+        style: document.getElementById('homingStyle').value,
+        direction: parseFloat(document.getElementById('homingDirection').value),
+        depth: parseFloat(document.getElementById('homingDepth').value),
+        scale: parseFloat(document.getElementById('homingScale').value) / 100,
+        offsetY: parseFloat(document.getElementById('homingOffsetY').value)
+      };
+      const lCfg = {
+        text: document.getElementById('legendText').value.trim(),
+        direction: parseFloat(document.getElementById('legendDirection').value),
+        font: document.getElementById('legendFont').value,
+        depth: parseFloat(document.getElementById('legendDepth').value),
+        sizeMM: parseFloat(document.getElementById('legendSize').value),
+        bevelMM: parseFloat(document.getElementById('legendBevel').value),
+        offsetX: parseFloat(document.getElementById('legendOffsetX').value),
+        offsetY: parseFloat(document.getElementById('legendOffsetY').value)
+      };
+
+      document.getElementById('val-homingDepth').textContent = `${hCfg.depth.toFixed(2)} mm`;
+      document.getElementById('val-homingScale').textContent = `${Math.round(hCfg.scale * 100)}%`;
+      document.getElementById('val-homingOffsetY').textContent = `${hCfg.offsetY >= 0 ? '+' : ''}${hCfg.offsetY.toFixed(2)} mm`;
+      document.getElementById('val-legendDepth').textContent = `${lCfg.depth.toFixed(2)} mm`;
+      document.getElementById('val-legendSize').textContent = `${lCfg.sizeMM.toFixed(1)} mm`;
+      document.getElementById('val-legendBevel').textContent = `${lCfg.bevelMM.toFixed(2)} mm`;
+      document.getElementById('val-legendOffsetX').textContent = `${lCfg.offsetX >= 0 ? '+' : ''}${lCfg.offsetX.toFixed(2)} mm`;
+      document.getElementById('val-legendOffsetY').textContent = `${lCfg.offsetY >= 0 ? '+' : ''}${lCfg.offsetY.toFixed(2)} mm`;
+
+      if (hCfg.style === 'none' && !lCfg.text.length) {
+        reliefPreparedCap = { positions: analyzedBaseCap.basePositions, reliefOffsets: new Float32Array(analyzedBaseCap.basePositions.length / 3) };
+        return;
+      }
+
+      const spanMM = 18.0;
+      let lSdf = null;
+      if (lCfg.text.length) {
+        ctx2d.fillStyle = '#000'; ctx2d.fillRect(0, 0, SDF_RES, SDF_RES);
+        ctx2d.font = `700 ${((lCfg.sizeMM / spanMM) * SDF_RES).toFixed(1)}px ${lCfg.font}`;
+        ctx2d.textAlign = 'center'; ctx2d.textBaseline = 'middle'; ctx2d.fillStyle = '#fff';
+        ctx2d.fillText(lCfg.text, (0.5 + lCfg.offsetX / spanMM) * SDF_RES, (0.5 - lCfg.offsetY / spanMM) * SDF_RES);
+        const img = ctx2d.getImageData(0, 0, SDF_RES, SDF_RES).data, mask = new Uint8Array(SDF_RES * SDF_RES);
+        for (let i = 0; i < SDF_RES * SDF_RES; i++) mask[i] = img[i * 4] > 127 ? 1 : 0;
+        lSdf = compute2DSignedDistanceMM(mask, SDF_RES, spanMM);
+      }
+
+      function evalRelief(x, y) {
+        const h = evalHoming(x, y, hCfg, analyzedBaseCap.depth);
+        let lDz = 0, lNear = false;
+        if (lSdf) {
+          const u = ((x / spanMM) + 0.5) * (SDF_RES - 1), v = (0.5 - (y / spanMM)) * (SDF_RES - 1);
+          if (u >= 1 && u < SDF_RES - 2 && v >= 1 && v < SDF_RES - 2) {
+            const ix = Math.floor(u), iy = Math.floor(v), fx = u - ix, fy = v - iy;
+            const d0 = lSdf[iy * SDF_RES + ix] + (lSdf[iy * SDF_RES + ix + 1] - lSdf[iy * SDF_RES + ix]) * fx;
+            const d1 = lSdf[(iy + 1) * SDF_RES + ix] + (lSdf[(iy + 1) * SDF_RES + ix + 1] - lSdf[(iy + 1) * SDF_RES + ix]) * fx;
+            const sd = d0 + (d1 - d0) * fy, b = lCfg.bevelMM;
+            lDz = lCfg.direction * lCfg.depth * THREE.MathUtils.smoothstep(sd, -b * 0.45, b * 0.55);
+            lNear = sd > -(b + 0.55);
+          }
+        }
+        return { dz: h.dz + lDz, near: h.near || lNear };
+      }
+
+      const raw = analyzedBaseCap.basePositions, nRaw = raw.length / 3;
+      const vMap = new Map(), vx = [], vy = [], vz = [];
+      let tris = [];
+      for (let i = 0; i < nRaw; i++) {
+        const x = raw[i*3], y = raw[i*3+1], z = raw[i*3+2];
+        const k = `${Math.round(x*2000)}_${Math.round(y*2000)}_${Math.round(z*2000)}`;
+        let idx = vMap.get(k);
+        if (idx === undefined) { idx = vx.length; vMap.set(k, idx); vx.push(x); vy.push(y); vz.push(z); }
+        tris.push(idx);
+      }
+
+      const isTop = new Array(vx.length).fill(0), zMin = analyzedBaseCap.zSeat + 0.22;
+      for (let t = 0; t < tris.length; t += 3) {
+        const i0 = tris[t], i1 = tris[t+1], i2 = tris[t+2];
+        const ux = vx[i1]-vx[i0], uy = vy[i1]-vy[i0], uz = vz[i1]-vz[i0];
+        const wx = vx[i2]-vx[i0], wy = vy[i2]-vy[i0], wz = vz[i2]-vz[i0];
+        const nx = uy*wz - uz*wy, ny = uz*wx - ux*wz, nz = ux*wy - uy*wx, len = Math.hypot(nx, ny, nz);
+        if (len > 1e-7 && (nz / len) > 0.32 && vz[i0] > zMin && vz[i1] > zMin && vz[i2] > zMin) {
+          isTop[i0] = 1; isTop[i1] = 1; isTop[i2] = 1;
+        }
+      }
+
+      for (const maxL of [0.90, 0.45, 0.24, 0.13]) {
+        const maxSq = maxL * maxL, eMap = new Map();
+        function splitE(a, b) {
+          const ek = a < b ? `${a}_${b}` : `${b}_${a}`;
+          if (eMap.has(ek)) return eMap.get(ek);
+          if (!isTop[a] || !isTop[b]) { eMap.set(ek, -1); return -1; }
+          const dx = vx[a]-vx[b], dy = vy[a]-vy[b], dz = vz[a]-vz[b], lSq = dx*dx + dy*dy + dz*dz;
+          if (lenCheck(a, b, lSq, maxSq)) { eMap.set(ek, -1); return -1; }
+          const mx = 0.5*(vx[a]+vx[b]), my = 0.5*(vy[a]+vy[b]), mz = 0.5*(vz[a]+vz[b]);
+          if (!evalRelief(mx, my).near && !evalRelief(vx[a], vy[a]).near && !evalRelief(vx[b], vy[b]).near && lSq < 3.5) {
+            eMap.set(ek, -1); return -1;
+          }
+          const mid = vx.length;
+          vx.push(mx); vy.push(my); vz.push(mz); isTop.push(1);
+          eMap.set(ek, mid); return mid;
+        }
+        function lenCheck(a, b, lSq, mSq) { return lSq <= mSq; }
+        const nextT = [];
+        for (let t = 0; t < tris.length; t += 3) {
+          const i0 = tris[t], i1 = tris[t+1], i2 = tris[t+2];
+          if (!isTop[i0] && !isTop[i1] && !isTop[i2]) { nextT.push(i0, i1, i2); continue; }
+          const m01 = splitE(i0, i1), m12 = splitE(i1, i2), m20 = splitE(i2, i0);
+          const sc = (m01 >= 0 ? 1 : 0) + (m12 >= 0 ? 1 : 0) + (m20 >= 0 ? 1 : 0);
+          if (sc === 0) nextT.push(i0, i1, i2);
+          else if (sc === 1) {
+            if (m01 >= 0) nextT.push(i0, m01, i2, m01, i1, i2);
+            else if (m12 >= 0) nextT.push(i1, m12, i0, m12, i2, i0);
+            else nextT.push(i2, m20, i1, m20, i0, i1);
+          } else if (sc === 2) {
+            if (m01 < 0) nextT.push(i2, m20, m12, i0, i1, m12, i0, m12, m20);
+            else if (m12 < 0) nextT.push(i0, m01, m20, i1, i2, m20, i1, m20, m01);
+            else nextT.push(i1, m12, m01, i2, i0, m01, i2, m01, m12);
+          } else nextT.push(i0, m01, m20, m01, i1, m12, m20, m12, i2, m01, m12, m20);
+        }
+        tris = nextT;
+      }
+
+      const fPos = new Float32Array(tris.length * 3), fOff = new Float32Array(tris.length);
+      for (let k = 0; k < tris.length; k++) {
+        const idx = tris[k], x = vx[idx], y = vy[idx], z = vz[idx];
+        fPos[k*3] = x; fPos[k*3+1] = y; fPos[k*3+2] = z;
+        fOff[k] = (z > zMin && Math.abs(x) < analyzedBaseCap.width * 0.44 && Math.abs(y) < analyzedBaseCap.depth * 0.44) ? evalRelief(x, y).dz : 0;
+      }
+      reliefPreparedCap = { positions: fPos, reliefOffsets: fOff };
+    }
+
+    // 6. MONOTONIC HERMITE WALL LOFTING + DECOUPLED SKIRT TRIM ENGINE
+    function rebuildModifiedMesh() {
+      if (!analyzedBaseCap || !reliefPreparedCap) return;
+      const { width, depth, zMinStem, zSeat, zTopCenter, zDishSplit } = analyzedBaseCap;
+      const { positions: prepPos, reliefOffsets } = reliefPreparedCap;
+
+      const minSafeOff = (zSeat + 0.85) - zTopCenter;
+      let heightOffset = parseFloat(document.getElementById('heightOffset').value) || 0;
+      if (heightOffset < minSafeOff) { heightOffset = minSafeOff; document.getElementById('heightOffset').value = heightOffset; }
+
+      const pitchDeg = parseFloat(document.getElementById('pitchAngle').value);
+      const rollDeg = parseFloat(document.getElementById('rollAngle').value);
+      const zCompMode = document.getElementById('zCompMode').value;
+      const skirtTrim = parseFloat(document.getElementById('skirtTrim').value);
+      const prongTrim = parseFloat(document.getElementById('prongTrim').value);
+      const socketMode = document.getElementById('socketMode').value;
+      const stemTol = parseFloat(document.getElementById('stemTolerance').value);
+      const xyOff = parseFloat(document.getElementById('xyScaleOffset').value);
+
+      document.getElementById('val-heightOffset').textContent = `${heightOffset >= 0 ? '+' : ''}${heightOffset.toFixed(2)} mm`;
+      document.getElementById('val-pitchAngle').textContent = `${pitchDeg >= 0 ? '+' : ''}${pitchDeg.toFixed(1)}°`;
+      document.getElementById('val-rollAngle').textContent = `${rollDeg >= 0 ? '+' : ''}${rollDeg.toFixed(1)}°`;
+      document.getElementById('val-zCompMode').textContent = zCompMode === 'minimal' ? 'Auto Minimal' : (zCompMode === 'center' ? 'Center Pivot' : 'Full Loft');
+      document.getElementById('val-skirtTrim').textContent = `${skirtTrim >= 0 ? '+' : ''}${skirtTrim.toFixed(2)} mm`;
+      document.getElementById('val-prongTrim').textContent = `${prongTrim >= 0 ? '+' : ''}${prongTrim.toFixed(2)} mm`;
+      document.getElementById('val-stemTolerance').textContent = `${stemTol >= 0 ? '+' : ''}${stemTol.toFixed(2)} mm`;
+      document.getElementById('val-xyScaleOffset').textContent = `${xyOff >= 0 ? '+' : ''}${xyOff.toFixed(2)} mm`;
+
+      const tanP = Math.tan(THREE.MathUtils.degToRad(pitchDeg)), tanR = Math.tan(THREE.MathUtils.degToRad(rollDeg));
+      const scX = (width + xyOff) / width, scY = (depth + xyOff) / depth;
+
+      // Tilt drop at the outer rim caused ONLY by Pitch & Roll (strictly 0 when Pitch=0 and Roll=0!)
+      const tiltEdgeDrop = (depth * scY * 0.44) * Math.abs(tanP) + (width * scX * 0.44) * Math.abs(tanR);
+      const availWallMargin = Math.max(0.15, (zDishSplit + heightOffset) - skirtTrim - 0.55);
+
+      let zTiltComp = 0;
+      if (zCompMode === 'minimal') {
+        zTiltComp = Math.max(0, tiltEdgeDrop - availWallMargin);
+      } else if (zCompMode === 'center') {
+        const hardMargin = Math.max(0.10, (zDishSplit + heightOffset) - skirtTrim - 0.30);
+        zTiltComp = Math.max(0, tiltEdgeDrop - hardMargin);
+      } else {
+        zTiltComp = tiltEdgeDrop;
+      }
+
+      const effCenterZ = zTopCenter + heightOffset + zTiltComp;
+      if (document.activeElement !== document.getElementById('targetHeightMM')) {
+        document.getElementById('targetHeightMM').value = effCenterZ.toFixed(2);
+      }
+
+      /**
+       * Strictly Monotonic Clamped Hermite Wall & Dish Transformation:
+       * - Above zDishSplit: 100% rigid sculpted top dish (z + dzR + totalTopDeltaZ).
+       * - Below zDishSplit: maps z in [0, zDishSplit] monotonically onto [skirtTrim, zDishSplit + totalTopDeltaZ]
+       *   with C¹ slope matching at zDishSplit and strictly positive derivative everywhere.
+       */
+      function xformWallDish(x, y, z, dzR) {
+        const xs = x * scX, ys = y * scY;
+        const totalTopDeltaZ = heightOffset + ys * tanP + xs * tanR + zTiltComp;
+
+        if (z >= zDishSplit) {
+          return [xs, ys, z + dzR + totalTopDeltaZ];
+        }
+
+        const H0 = zDishSplit;
+        const H1 = Math.max(0.25, H0 + totalTopDeltaZ - skirtTrim);
+        const t = THREE.MathUtils.clamp(z / H0, 0, 1);
+        const alpha = THREE.MathUtils.clamp((H0 / H1) - 1.0, -0.45, 0.85);
+        const phi = (1.0 - alpha) * t + alpha * t * t;
+
+        return [xs, ys, skirtTrim + H1 * phi + dzR * t];
+      }
+
+      function xformVert(x, y, z, dzR) {
+        const normR = Math.max(Math.abs(x) / 4.25, Math.abs(y) / 2.45);
+        const wWeight = THREE.MathUtils.smoothstep(normR, 0.92, 1.28);
+        if (wWeight < 0.999 && z <= zSeat + 0.12) {
+          let xo = x, yo = y;
+          if (z < zSeat - 0.05 && Math.abs(stemTol) > 1e-4) {
+            if (Math.abs(x) > 1.5) {
+              const pc = Math.sign(x) * 2.85;
+              xo = pc + (x - pc) * Math.max(0.5, (0.60 - stemTol * 0.5) / 0.60);
+              yo = y * Math.max(0.6, (1.475 - stemTol * 0.5) / 1.475);
+            } else {
+              const r = Math.hypot(x, y);
+              if (r > 0.1 && r < 2.3) { const f = Math.max(0.7, (r + stemTol * 0.5) / r); xo = x * f; yo = y * f; }
+            }
+          }
+          let zs = z;
+          if (z < zSeat - 0.15 && Math.abs(prongTrim) > 1e-4) {
+            zs += prongTrim * THREE.MathUtils.clamp((zSeat - 0.15 - z) / Math.max(0.5, zSeat - 0.15 - zMinStem), 0, 1);
+          }
+          const cw = THREE.MathUtils.smoothstep(z, zSeat - 0.25, zSeat + 0.08);
+          const zc = z + heightOffset + (y * scY) * tanP + (x * scX) * tanR + zTiltComp;
+          zs = zs * (1.0 - cw) + zc * cw;
+          if (wWeight <= 0.001) return [xo, yo, zs];
+          const [xw, yw, zw] = xformWallDish(x, y, z, dzR);
+          return [xo + (xw - xo) * wWeight, yo + (yw - yo) * wWeight, zs + (zw - zs) * wWeight];
+        }
+        return xformWallDish(x, y, z, dzR);
+      }
+
+      const outPos = [], nV = prepPos.length / 3;
+      for (let i = 0; i < nV; i += 3) {
+        const x0 = prepPos[i*3], y0 = prepPos[i*3+1], z0 = prepPos[i*3+2];
+        const x1 = prepPos[(i+1)*3], y1 = prepPos[(i+1)*3+1], z1 = prepPos[(i+1)*3+2];
+        const x2 = prepPos[(i+2)*3], y2 = prepPos[(i+2)*3+1], z2 = prepPos[(i+2)*3+2];
+        if (socketMode !== 'original') {
+          const mx = (x0+x1+x2)/3, my = (y0+y1+y2)/3, mz = (z0+z1+z2)/3;
+          if ((Math.abs(mx) < 4.15 && Math.abs(my) < 2.45 && mz < zSeat - 0.04) || (Math.hypot(mx, my) < 3.15 && mz < zSeat - 0.04)) continue;
+        }
+        const p0 = xformVert(x0, y0, z0, reliefOffsets[i]);
+        const p1 = xformVert(x1, y1, z1, reliefOffsets[i+1]);
+        const p2 = xformVert(x2, y2, z2, reliefOffsets[i+2]);
+        outPos.push(p0[0], p0[1], p0[2], p1[0], p1[1], p1[2], p2[0], p2[1], p2[2]);
+      }
+
+      if (socketMode !== 'original') {
+        const zCeilFn = (x, y) => (zSeat + 0.25) + heightOffset + (y * scY) * tanP + (x * scX) * tanR + zTiltComp;
+        if (socketMode === 'choc_v1' || socketMode === 'choc_v1_rot90') {
+          const pw = Math.max(0.75, 1.20 - stemTol), pd = Math.max(2.10, 2.95 - stemTol), zb = (zSeat - 3.00) + prongTrim;
+          if (socketMode === 'choc_v1') {
+            buildChocProngBox(outPos, -2.85, 0, pw, pd, zb, zCeilFn);
+            buildChocProngBox(outPos,  2.85, 0, pw, pd, zb, zCeilFn);
+          } else {
+            buildChocProngBox(outPos, 0, -2.85, pd, pw, zb, zCeilFn);
+            buildChocProngBox(outPos, 0,  2.85, pd, pw, zb, zCeilFn);
+          }
+        } else if (socketMode === 'mx') {
+          buildMXCruciformSocket(outPos, (zSeat - 3.60) + prongTrim, zCeilFn, stemTol);
+        }
+      }
+
+      const finalGeo = new THREE.BufferGeometry();
+      finalGeo.setAttribute('position', new THREE.Float32BufferAttribute(outPos, 3));
+      finalGeo.computeVertexNormals();
+      finalGeo.computeBoundingBox();
+
+      if (activeKeycapMesh) { activeKeycapMesh.geometry.dispose(); scene.remove(activeKeycapMesh); }
+      activeKeycapMesh = new THREE.Mesh(finalGeo, keycapMaterial);
+      scene.add(activeKeycapMesh);
+
+      if (ghostOriginalMesh) { ghostOriginalMesh.geometry.dispose(); scene.remove(ghostOriginalMesh); ghostOriginalMesh = null; }
+      if (showOriginalGhost) {
+        const og = new THREE.BufferGeometry();
+        og.setAttribute('position', new THREE.BufferAttribute(analyzedBaseCap.basePositions.slice(), 3));
+        ghostOriginalMesh = new THREE.Mesh(og, ghostOriginalMaterial);
+        scene.add(ghostOriginalMesh);
+      }
+
+      const fBB = finalGeo.boundingBox, stemBotZ = fBB.min.z;
+      document.getElementById('stat-installedH').textContent = `${effCenterZ.toFixed(2)} mm (${(effCenterZ - zSeat).toFixed(2)} mm above seat)`;
+      document.getElementById('stat-skirtZ').textContent = `Z = ${skirtTrim >= 0 ? '+' : ''}${skirtTrim.toFixed(2)} mm`;
+      document.getElementById('stat-stemProtrude').textContent = `${(skirtTrim - stemBotZ).toFixed(2)} mm below skirt`;
+      document.getElementById('stat-footprint').textContent = `${(width + xyOff).toFixed(1)} × ${(depth + xyOff).toFixed(1)} mm`;
+      document.getElementById('stat-tris').textContent = (outPos.length / 9).toLocaleString();
+
+      updateDatumPlanes(skirtTrim, stemBotZ, width + 6, depth + 6);
+    }
+
+    let showDatumPlanes = true, showOriginalGhost = false;
+    function updateDatumPlanes(skirtZ, stemBotZ, pw, pd) {
+      while (datumPlanesGroup.children.length) {
+        const c = datumPlanesGroup.children[0]; c.geometry.dispose(); c.material.dispose(); datumPlanesGroup.remove(c);
+      }
+      if (!showDatumPlanes) return;
+      const sg = new THREE.PlaneGeometry(pw, pd); sg.translate(0, 0, skirtZ);
+      datumPlanesGroup.add(new THREE.Mesh(sg, new THREE.MeshBasicMaterial({ color: 0x06b6d4, transparent: true, opacity: 0.15, side: THREE.DoubleSide, depthWrite: false })));
+      datumPlanesGroup.add(new THREE.LineSegments(new THREE.EdgesGeometry(sg), new THREE.LineBasicMaterial({ color: 0x06b6d4, transparent: true, opacity: 0.65 })));
+      if (stemBotZ < skirtZ - 0.05) {
+        const pg = new THREE.PlaneGeometry(pw * 0.65, pd * 0.65); pg.translate(0, 0, stemBotZ);
+        datumPlanesGroup.add(new THREE.Mesh(pg, new THREE.MeshBasicMaterial({ color: 0x10b981, transparent: true, opacity: 0.17, side: THREE.DoubleSide, depthWrite: false })));
+        datumPlanesGroup.add(new THREE.LineSegments(new THREE.EdgesGeometry(pg), new THREE.LineBasicMaterial({ color: 0x10b981, transparent: true, opacity: 0.75 })));
+      }
+    }
+
+    // 7. UI EVENT BINDINGS
+    repoSelect.addEventListener('change', async () => {
+      if (repoSelect.value === 'CUSTOM') { customRepoGroup.style.display = 'block'; return; }
+      customRepoGroup.style.display = 'none';
+      populateFolderAndFileSelects(await fetchRepoFileList(repoSelect.value));
+    });
+    document.getElementById('btnFetchCustomRepo').addEventListener('click', async () => {
+      const v = customRepoInput.value.trim();
+      if (v) populateFolderAndFileSelects(await fetchRepoFileList(v.includes('@') ? v : `${v}@main`));
+    });
+    document.getElementById('btnReloadStl').addEventListener('click', () => {
+      if (stlFileSelect.value) loadExactStlFromRepo(currentRepoSpec, stlFileSelect.value);
+    });
+    folderFilter.addEventListener('change', filterStlSelectByFolder);
+    stlFileSelect.addEventListener('change', () => {
+      if (stlFileSelect.value) loadExactStlFromRepo(currentRepoSpec, stlFileSelect.value);
+    });
+    shellIndexSelect.addEventListener('change', () => {
+      const idx = parseInt(shellIndexSelect.value, 10);
+      if (extractedShells[idx]) {
+        analyzedBaseCap = analyzeExactKeycapMesh(extractedShells[idx]);
+        syncHeightInputsFromBaseCap(); rebuildReliefPreparedCap(); rebuildModifiedMesh();
+      }
+    });
+    document.getElementById('localStlInput').addEventListener('change', (e) => {
+      const f = e.target.files[0]; if (!f) return;
+      setProgress(`Reading ${f.name}...`, 50);
+      const r = new FileReader();
+      r.onload = (ev) => { processLoadedStlBuffer(ev.target.result, f.name); setProgress(`Ready (Local): ${f.name}`, 100); };
+      r.readAsArrayBuffer(f);
+    });
+    document.getElementById('targetHeightMM').addEventListener('input', (e) => {
+      if (!analyzedBaseCap) return;
+      const v = parseFloat(e.target.value);
+      if (!isNaN(v)) {
+        document.getElementById('heightOffset').value = THREE.MathUtils.clamp(v - analyzedBaseCap.zTopCenter, -1.20, 6.00);
+        rebuildModifiedMesh();
+      }
+    });
+
+    ['heightOffset', 'pitchAngle', 'rollAngle', 'zCompMode', 'skirtTrim', 'prongTrim', 'socketMode', 'stemTolerance', 'xyScaleOffset'].forEach(id => {
+      document.getElementById(id).addEventListener('input', rebuildModifiedMesh);
+    });
+    ['homingStyle', 'homingDirection', 'homingDepth', 'homingScale', 'homingOffsetY',
+     'legendText', 'legendDirection', 'legendFont', 'legendDepth', 'legendSize', 'legendBevel', 'legendOffsetX', 'legendOffsetY'].forEach(id => {
+      document.getElementById(id).addEventListener('input', () => { rebuildReliefPreparedCap(); rebuildModifiedMesh(); });
+    });
+    document.querySelectorAll('.char-chip').forEach(c => {
+      c.addEventListener('click', () => { document.getElementById('legendText').value = c.dataset.char; rebuildReliefPreparedCap(); rebuildModifiedMesh(); });
+    });
+
+    document.getElementById('btnResetTiltHeight').addEventListener('click', () => {
+      document.getElementById('heightOffset').value = 0; document.getElementById('pitchAngle').value = 0; document.getElementById('rollAngle').value = 0;
+      syncHeightInputsFromBaseCap(); rebuildModifiedMesh();
+    });
+    document.getElementById('btnResetSkirt').addEventListener('click', () => {
+      document.getElementById('skirtTrim').value = 0; document.getElementById('prongTrim').value = 0;
+      rebuildModifiedMesh();
+    });
+    document.getElementById('btnResetHoming').addEventListener('click', () => {
+      document.getElementById('homingStyle').value = 'none'; document.getElementById('homingOffsetY').value = 0;
+      rebuildReliefPreparedCap(); rebuildModifiedMesh();
+    });
+    document.getElementById('btnClearLegend').addEventListener('click', () => {
+      document.getElementById('legendText').value = ''; document.getElementById('legendOffsetX').value = 0; document.getElementById('legendOffsetY').value = 0;
+      rebuildReliefPreparedCap(); rebuildModifiedMesh();
+    });
+    document.getElementById('btnShowDatumPlanes').addEventListener('click', (e) => {
+      showDatumPlanes = !showDatumPlanes; e.currentTarget.classList.toggle('active', showDatumPlanes); rebuildModifiedMesh();
+    });
+    document.getElementById('btnShowOriginalGhost').addEventListener('click', (e) => {
+      showOriginalGhost = !showOriginalGhost; e.currentTarget.classList.toggle('active', showOriginalGhost); rebuildModifiedMesh();
+    });
+
+    let crossSec = false, wire = false, botView = false;
+    document.getElementById('btnCrossSection').addEventListener('click', (e) => {
+      crossSec = !crossSec; e.currentTarget.classList.toggle('active', crossSec);
+      keycapMaterial.clippingPlanes = crossSec ? [clipPlane] : []; keycapMaterial.needsUpdate = true;
+    });
+    document.getElementById('btnWireframe').addEventListener('click', (e) => {
+      wire = !wire; e.currentTarget.classList.toggle('active', wire); keycapMaterial.wireframe = wire;
+    });
+    document.getElementById('btnBottomView').addEventListener('click', (e) => {
+      botView = !botView; e.currentTarget.classList.toggle('active', botView);
+      camera.position.set(botView ? 16 : 21, botView ? -18 : -24, botView ? -14 : 15); controls.update();
+    });
+
+    const exporter = new STLExporter();
+    document.getElementById('btnExportSTL').addEventListener('click', () => {
+      if (!activeKeycapMesh) return;
+      const blob = new Blob([exporter.parse(activeKeycapMesh, { binary: true })], { type: 'application/octet-stream' });
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+      const base = (stlFileSelect.value || 'keycap').split('/').pop().replace(/\.stl$/i, '');
+      const h = document.getElementById('targetHeightMM').value, p = document.getElementById('pitchAngle').value, r = document.getElementById('rollAngle').value;
+      a.download = `${base}_H${h}mm_P${p}_R${r}.stl`; a.click(); URL.revokeObjectURL(a.href);
+    });
+
+    window.addEventListener('resize', () => {
+      camera.aspect = container.clientWidth / container.clientHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(container.clientWidth, container.clientHeight);
+    });
+
+    // Boot starter mesh immediately on Frame 1, then fetch exact GitHub STL in background
+    analyzedBaseCap = analyzeExactKeycapMesh(createFallbackStarterGeometry());
+    syncHeightInputsFromBaseCap();
+    rebuildReliefPreparedCap();
+    rebuildModifiedMesh();
+    setProgress('3D Engine Ready — Fetching GitHub STLs...', 25);
+
+    (async () => {
+      populateFolderAndFileSelects(await fetchRepoFileList(repoSelect.value));
+    })();
+  </script>
+</body>
+</html>
